@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from cafe_order_kiosk.models import MenuItem, Order, OrderItem, OrderStatus, Payment
+from cafe_order_kiosk.sales import SalesMenuSummary, SalesSummary
 from cafe_order_kiosk.utils import utc_now
 
 DEFAULT_MENU: tuple[MenuItem, ...] = (
@@ -118,6 +119,48 @@ class KioskStore:
         order.paid_at = utc_now()
         order.payment = Payment(method=method, amount=amount, paid_at=order.paid_at)
         return order
+
+
+    def sales_summary(self) -> SalesSummary:
+        rows: dict[int, SalesMenuSummary] = {}
+        paid_order_count = 0
+        total_amount = 0
+
+        for order in self._orders.values():
+            if order.status is not OrderStatus.PAID:
+                continue
+
+            paid_order_count += 1
+            total_amount += order.total
+
+            for item in order.items:
+                current = rows.get(item.menu_item_id)
+                if current is None:
+                    rows[item.menu_item_id] = SalesMenuSummary(
+                        menu_item_id=item.menu_item_id,
+                        name=item.name,
+                        quantity=item.quantity,
+                        amount=item.line_total,
+                    )
+                else:
+                    rows[item.menu_item_id] = SalesMenuSummary(
+                        menu_item_id=current.menu_item_id,
+                        name=current.name,
+                        quantity=current.quantity + item.quantity,
+                        amount=current.amount + item.line_total,
+                    )
+
+        items = tuple(
+            sorted(
+                rows.values(),
+                key=lambda item: (-item.quantity, -item.amount, item.name),
+            )
+        )
+        return SalesSummary(
+            paid_order_count=paid_order_count,
+            total_amount=total_amount,
+            items=items,
+        )
 
     def _require_order(self, order_id: int) -> Order:
         order = self._orders.get(order_id)

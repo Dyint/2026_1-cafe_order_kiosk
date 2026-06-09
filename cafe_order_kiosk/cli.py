@@ -39,6 +39,8 @@ def run_cli() -> int:
             print_help()
         elif command in {"메뉴", "menu"}:
             handle_menu(store)
+        elif command in {"매출요약", "sales"}:
+            handle_sales_summary(store, args)
         elif command in {"주문", "order"}:
             handle_order(store, state, args)
         elif command in {"주문목록", "orders"}:
@@ -54,6 +56,7 @@ def run_cli() -> int:
 def print_help() -> None:
     print("명령어:")
     print("\t메뉴")
+    print("\t매출요약 [표시개수]")
     print("\t주문 생성 [메모]")
     print("\t주문 선택 <주문_id>")
     print("\t주문 추가 <메뉴_id> <수량> [옵션]")
@@ -73,6 +76,34 @@ def handle_menu(store: KioskStore) -> None:
         print(
             f"\t{item.id}. {item.name} ({item.category}) - {format_money(item.price)}"
             f"{description}"
+        )
+
+
+
+def handle_sales_summary(store: KioskStore, args: list[str]) -> None:
+    limit = 5
+    if args:
+        parsed = parse_int_arg(args, "표시 개수")
+        if parsed is None:
+            return
+        if parsed < 1:
+            print("표시 개수는 1 이상이어야 합니다.")
+            return
+        limit = parsed
+
+    summary = store.sales_summary()
+    if summary.paid_order_count == 0:
+        print("결제 완료된 주문이 없습니다.")
+        return
+
+    print("매출요약:")
+    print(f"	결제 완료 주문: {summary.paid_order_count}건")
+    print(f"	총 매출: {format_money(summary.total_amount)}원")
+    print("	인기 메뉴:")
+    for index, item in enumerate(summary.items[:limit], start=1):
+        print(
+            f"	{index}. {item.name} - {item.quantity}개 / "
+            f"{format_money(item.amount)}원"
         )
 
 
