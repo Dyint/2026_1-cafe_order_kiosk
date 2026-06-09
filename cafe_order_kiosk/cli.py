@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from cafe_order_kiosk.models import OrderStatus
 from cafe_order_kiosk.kiosk_store import KioskStore
 from cafe_order_kiosk.utils import format_money
+from cafe_order_kiosk.receipt import build_receipt
 
 
 @dataclass
@@ -45,6 +46,8 @@ def run_cli() -> int:
             handle_orders(store, args)
         elif command in {"결제", "pay"}:
             handle_pay(store, state, args)
+        elif command in {"영수증", "receipt"}:
+            handle_receipt(store, state, args)
         else:
             print("알 수 없는 명령입니다. '도움말'을 입력하세요.")
     print("종료합니다.")
@@ -62,6 +65,7 @@ def print_help() -> None:
     print("\t주문 취소")
     print("\t주문목록 목록 [진행중|결제완료|취소]")
     print("\t결제 <방법> [금액]")
+    print("\t영수증 [주문_id]")
     print("\t도움말")
     print("\t종료")
 
@@ -210,6 +214,25 @@ def handle_pay(store: KioskStore, state: CLIState, args: list[str]) -> None:
 
     print(f"주문 #{order.id} 결제 완료 ({method}).")
 
+
+
+def handle_receipt(store: KioskStore, state: CLIState, args: list[str]) -> None:
+    if args:
+        order_id = parse_int_arg(args[:1], "order_id")
+        if order_id is None:
+            return
+    else:
+        if state.current_order_id is None:
+            print("선택된 주문이 없습니다. 먼저 '주문 생성'을 사용하거나 주문_id를 입력하세요.")
+            return
+        order_id = state.current_order_id
+
+    order = store.get_order(order_id)
+    if order is None:
+        print("주문을 찾을 수 없습니다.")
+        return
+
+    print(build_receipt(order))
 
 def print_order(order) -> None:
     print(f"주문 #{order.id} ({format_status(order.status)})")
